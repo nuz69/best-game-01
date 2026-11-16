@@ -37,15 +37,23 @@ export class Renderer {
     // 1. Draw arena grid & boundary
     this._drawGrid(world);
 
-    // 2. Draw projectiles & particles
+    // 2. Draw pickups
+    this._drawPickups(world.pickups);
+
+    // 3. Draw enemies
+    for (const enemy of world.enemies) {
+      enemy.draw(ctx);
+    }
+
+    // 4. Draw projectiles & particles
     world.projectiles.draw(ctx);
 
-    // 3. Draw player vessel with neon glow
+    // 5. Draw player vessel with neon glow
     this._drawPlayer(world.player);
 
     ctx.restore();
 
-    // 4. Draw HUD overlays
+    // 6. Draw HUD overlays, Boss bar, Wave banner
     this._drawHUD(world);
   }
 
@@ -71,6 +79,22 @@ export class Renderer {
       ctx.lineTo(world.width, y);
     }
     ctx.stroke();
+  }
+
+  _drawPickups(pickups) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = CONFIG.COLORS.pickupEmerald;
+    ctx.fillStyle = CONFIG.COLORS.pickupEmerald;
+
+    for (const p of pickups) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   _drawPlayer(player) {
@@ -113,6 +137,7 @@ export class Renderer {
   _drawHUD(world) {
     const ctx = this.ctx;
     const width = this.canvas.width;
+    const height = this.canvas.height;
 
     ctx.save();
     ctx.font = 'bold 16px "Courier New", monospace';
@@ -148,6 +173,41 @@ export class Renderer {
     ctx.font = 'bold 12px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`HP: ${Math.ceil(world.player.health)}/${world.player.maxHealth}`, barX + barWidth / 2, barY + 15);
+
+    // Boss Health Bar if boss is present
+    const boss = world.enemies.find(e => e.type === 'boss');
+    if (boss) {
+      const bossBarWidth = Math.min(500, width - 100);
+      const bossBarHeight = 16;
+      const bossBarX = (width - bossBarWidth) / 2;
+      const bossBarY = 70;
+
+      ctx.fillStyle = CONFIG.COLORS.hudBg;
+      ctx.fillRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
+
+      const bossRatio = Math.max(0, boss.health / boss.maxHealth);
+      ctx.fillStyle = CONFIG.COLORS.enemyMagenta;
+      ctx.fillRect(bossBarX, bossBarY, bossBarWidth * bossRatio, bossBarHeight);
+
+      ctx.strokeStyle = CONFIG.COLORS.enemyAmber;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
+
+      ctx.fillStyle = CONFIG.COLORS.textWhite;
+      ctx.font = 'bold 11px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`APEX CORE HP: ${Math.ceil(boss.health)} / ${boss.maxHealth}`, bossBarX + bossBarWidth / 2, bossBarY + 13);
+    }
+
+    // Wave Banner Notification
+    if (world.waveManager.bannerTimer > 0) {
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = CONFIG.COLORS.player;
+      ctx.fillStyle = CONFIG.COLORS.player;
+      ctx.font = 'bold 32px "Courier New", monospace';
+      ctx.fillText(world.waveManager.bannerText, width / 2, height / 3);
+    }
 
     ctx.restore();
   }
@@ -232,6 +292,40 @@ export class Renderer {
     ctx.fillStyle = '#ff007f';
     ctx.font = 'bold 42px "Courier New", monospace';
     ctx.fillText('GAME OVER', width / 2, height / 2 - 80);
+
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#00f0ff';
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = 'bold 20px "Courier New", monospace';
+    ctx.fillText(`FINAL SCORE: ${score}`, width / 2, height / 2 - 20);
+    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 + 20);
+
+    ctx.fillStyle = '#ffb703';
+    ctx.font = 'bold 18px "Courier New", monospace';
+    const pulse = Math.floor(Date.now() / 300) % 2 === 0;
+    if (pulse) {
+      ctx.fillText('PRESS R TO RESTART', width / 2, height / 2 + 90);
+    }
+
+    ctx.restore();
+  }
+
+  drawVictoryScreen(score, highScore) {
+    const ctx = this.ctx;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.9)';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#00f5d4';
+
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = 'bold 42px "Courier New", monospace';
+    ctx.fillText('VICTORY: APEX DEFEATED', width / 2, height / 2 - 80);
 
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00f0ff';

@@ -9,7 +9,7 @@ class GameApp {
     this.renderer = new Renderer(this.canvas);
     this.world = new World();
 
-    this.state = 'title'; // 'title', 'play', 'pause', 'over'
+    this.state = 'title'; // 'title', 'play', 'pause', 'over', 'victory'
     this.highScore = 0;
     this.lastTime = performance.now();
 
@@ -21,6 +21,13 @@ class GameApp {
     }
 
     this._initResize();
+
+    // Expose for automated testing
+    window.__game = {
+      app: this,
+      world: this.world,
+      input: this.input
+    };
   }
 
   _initResize() {
@@ -65,6 +72,18 @@ class GameApp {
         this.world.step(dt, this.input);
         this.renderer.updateCamera(this.world.player.x, this.world.player.y);
 
+        // Check victory condition
+        if (this.world.isVictory) {
+          this.state = 'victory';
+          if (this.world.score > this.highScore) {
+            this.highScore = this.world.score;
+            try {
+              localStorage.setItem('synth_surge_highscore', this.highScore.toString());
+            } catch (e) {}
+          }
+          break;
+        }
+
         // Check game over condition
         if (this.world.player.health <= 0) {
           this.state = 'over';
@@ -84,6 +103,7 @@ class GameApp {
         break;
 
       case 'over':
+      case 'victory':
         if (this.input.isRestartPressed || this.input.isStartPressed) {
           this.world.reset();
           this.state = 'play';
@@ -113,6 +133,11 @@ class GameApp {
       case 'over':
         this.renderer.renderWorld(this.world);
         this.renderer.drawGameOverScreen(this.world.score, this.highScore);
+        break;
+
+      case 'victory':
+        this.renderer.renderWorld(this.world);
+        this.renderer.drawVictoryScreen(this.world.score, this.highScore);
         break;
     }
   }
