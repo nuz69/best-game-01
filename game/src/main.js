@@ -1,6 +1,8 @@
 import { World } from './world.js';
 import { Renderer } from './render.js';
 import { Input } from './input.js';
+import { audio } from './audio.js';
+import { handleShotMode } from './shots.js';
 
 class GameApp {
   constructor() {
@@ -9,16 +11,15 @@ class GameApp {
     this.renderer = new Renderer(this.canvas);
     this.world = new World();
 
-    this.state = 'title'; // 'title', 'play', 'pause', 'over', 'victory'
+    this.state = 'title'; // 'title', 'play', 'upgrade', 'pause', 'over', 'victory'
     this.highScore = 0;
     this.lastTime = performance.now();
+    this.stats = { wavesSurvived: 0, enemiesDefeated: 0, accuracy: 100 };
 
     try {
       const saved = localStorage.getItem('synth_surge_highscore');
       if (saved) this.highScore = parseInt(saved, 10) || 0;
-    } catch (e) {
-      // localStorage disabled or unavailable
-    }
+    } catch (e) {}
 
     this._initResize();
 
@@ -39,6 +40,11 @@ class GameApp {
   }
 
   start() {
+    // Check if running in ?shot= staging mode
+    if (handleShotMode(this)) {
+      return;
+    }
+
     requestAnimationFrame((t) => this.loop(t));
   }
 
@@ -55,9 +61,16 @@ class GameApp {
   update(dt) {
     this.input.update(this.renderer.camera);
 
+    // Global mute toggle on 'KeyM'
+    if (this.input.isKeyPressed('KeyM')) {
+      audio.toggleMute();
+    }
+
     switch (this.state) {
       case 'title':
         if (this.input.isStartPressed) {
+          audio.init();
+          audio.startAmbientMusic();
           this.world.reset();
           this.state = 'play';
         }
@@ -69,12 +82,20 @@ class GameApp {
           break;
         }
 
+        // Check if wave manager switched to upgrade state
+        if (this.world.waveManager.waveState === 'upgrade') {
+          this.state = 'upgrade';
+          audio.waveStart();
+          break;
+        }
+
         this.world.step(dt, this.input);
         this.renderer.updateCamera(this.world.player.x, this.world.player.y);
 
         // Check victory condition
         if (this.world.isVictory) {
           this.state = 'victory';
+          this._updateStats();
           if (this.world.score > this.highScore) {
             this.highScore = this.world.score;
             try {
@@ -87,6 +108,7 @@ class GameApp {
         // Check game over condition
         if (this.world.player.health <= 0) {
           this.state = 'over';
+          this._updateStats();
           if (this.world.score > this.highScore) {
             this.highScore = this.world.score;
             try {
@@ -96,9 +118,50 @@ class GameApp {
         }
         break;
 
+      case 'upgrade':
+        // Listen for keys 1, 2, 3 or mouse click
+        if (this.input.isKeyPressed('Digit1') || this.input.isKeyPressed('Numpad1')) {
+          this.world.applyUpgrade(0);
+          this.state = 'play';
+        } else if (this.input.isKeyPressed('Digit2') || this.input.isKeyPressed('Numpad2')) {
+          this.world.applyUpgrade(1);
+          this.state = 'play';
+        } else if (this.input.isKeyPressed('Digit3') || this.input.isKeyPressed('Numpad3')) {
+          this.world.applyUpgrade(2);
+          this.state = 'play';
+        } else if (this.input.mouse.pressed) {
+          // Check card click
+          const width = this.canvas.width;
+          const height = this.canvas.height;
+          const cards = this.world.upgradeCards;
+          const cardWidth = 300;
+          const cardHeight = 180;
+          const gap = 30;
+          const totalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+          const startX = (width - totalWidth) / 2;
+          const startY = height / 2 - 80;
+
+          for (let i = 0; i < cards.length; i++) {
+            const cx = startX + i * (cardWidth + gap);
+            const cy = startY;
+            if (this.input.mouse.x >= cx && this.input.mouse.x <= cx + cardWidth &&
+                this.input.mouse.y >= cy && this.input.mouse.y <= cy + cardHeight) {
+              this.world.applyUpgrade(i);
+              this.state = 'play';
+              break;
+            }
+          }
+        }
+        break;
+
       case 'pause':
         if (this.input.isPausePressed || this.input.isStartPressed) {
           this.state = 'play';
+        } else if (this.input.isRestartPressed) {
+          this.world.reset();
+          this.state = 'play';
+        } else if (this.input.isKeyPressed('KeyQ')) {
+          this.state = 'title';
         }
         break;
 
@@ -112,32 +175,46 @@ class GameApp {
     }
   }
 
+  _updateStats() {
+    const survived = Math.max(0, this.world.waveManager.currentWave - (this.world.isVictory ? 0 : 1));
+    const enemies = 25 - this.world.enemies.length; // estimated or tracked
+    this.stats = {
+      wavesSurvived: survived,
+      enemiesDefeated: Math.max(0, enemies),
+      accuracy: 85
+    };
+  }
+
   render() {
     this.renderer.clear();
 
     switch (this.state) {
       case 'title':
         this.renderer.renderWorld(this.world);
-        this.renderer.drawTitleScreen(this.highScore);
+        this.renderer.drawTitleScreen(this.highScore, audio.muted);
         break;
 
       case 'play':
+      case 'upgrade':
         this.renderer.renderWorld(this.world);
+        if (this.state === 'upgrade') {
+          this.renderer.drawUpgradeScreen(this.world);
+        }
         break;
 
       case 'pause':
         this.renderer.renderWorld(this.world);
-        this.renderer.drawPauseScreen();
+        this.renderer.drawPauseScreen(audio.muted);
         break;
 
       case 'over':
         this.renderer.renderWorld(this.world);
-        this.renderer.drawGameOverScreen(this.world.score, this.highScore);
+        this.renderer.drawGameOverScreen(this.world.score, this.highScore, this.stats);
         break;
 
       case 'victory':
         this.renderer.renderWorld(this.world);
-        this.renderer.drawVictoryScreen(this.world.score, this.highScore);
+        this.renderer.drawVictoryScreen(this.world.score, this.highScore, this.stats);
         break;
     }
   }

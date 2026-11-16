@@ -11,7 +11,6 @@ export class Enemy {
     this.stateTimer = 0;
     this.angle = 0;
 
-    // Set stats based on type
     switch (type) {
       case 'glowite':
         this.radius = 12;
@@ -97,13 +96,11 @@ export class Enemy {
     switch (this.type) {
       case 'glowite':
       case 'fragment':
-        // Direct chaser
         this.vx = nx * this.speed;
         this.vy = ny * this.speed;
         break;
 
       case 'vexar':
-        // Ranged shooter: maintains distance around 320px
         if (dist > 360) {
           this.vx = nx * this.speed;
           this.vy = ny * this.speed;
@@ -111,39 +108,34 @@ export class Enemy {
           this.vx = -nx * this.speed;
           this.vy = -ny * this.speed;
         } else {
-          // Circle around player
           this.vx = -ny * this.speed * 0.8;
           this.vy = nx * this.speed * 0.8;
         }
 
         this.fireCooldown -= dt;
         if (this.fireCooldown <= 0) {
-          this.fireCooldown = 1.8 + Math.random() * 0.5;
+          this.fireCooldown = 1.8 + world.rng() * 0.5;
           const bulletSpeed = 450;
           world.projectiles.spawnBullet(this.x, this.y, nx * bulletSpeed, ny * bulletSpeed, 15, false);
         }
         break;
 
       case 'splitNode':
-        // Slow advance
         this.vx = nx * this.speed;
         this.vy = ny * this.speed;
         break;
 
       case 'goliathX':
-        // Slow relentless brute
         this.vx = nx * this.speed;
         this.vy = ny * this.speed;
         break;
 
       case 'phantasm':
-        // Cloak and dash
         this.stateTimer += dt;
         if (this.stateTimer > 3.0) {
           this.isCloaked = !this.isCloaked;
           this.stateTimer = 0;
           if (!this.isCloaked) {
-            // Dash towards player prediction
             const dashSpeed = 600;
             this.vx = nx * dashSpeed;
             this.vy = ny * dashSpeed;
@@ -161,11 +153,9 @@ export class Enemy {
         break;
 
       case 'boss':
-        // Boss Apex Core behavior
         this.attackPatternTimer += dt;
         this.minionSpawnTimer += dt;
 
-        // Move towards center or hover near player
         const targetX = world.width / 2 + Math.sin(Date.now() * 0.001) * 300;
         const targetY = world.height / 2 + Math.cos(Date.now() * 0.0008) * 300;
         const bdx = targetX - this.x;
@@ -173,7 +163,6 @@ export class Enemy {
         this.vx = (bdx / (Math.hypot(bdx, bdy) || 1)) * this.speed;
         this.vy = (bdy / (Math.hypot(bdx, bdy) || 1)) * this.speed;
 
-        // Radial bullet attack every 1.5s
         if (this.attackPatternTimer >= 1.5) {
           this.attackPatternTimer = 0;
           const count = 10;
@@ -192,7 +181,6 @@ export class Enemy {
           }
         }
 
-        // Minion spawn every 8 seconds
         if (this.minionSpawnTimer >= 8.0) {
           this.minionSpawnTimer = 0;
           world.spawnMinion(this.x + 50, this.y);
@@ -299,7 +287,6 @@ export class Enemy {
         ctx.arc(0, 0, this.radius * 0.6, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Core glowing center
         ctx.fillStyle = CONFIG.COLORS.textWhite;
         ctx.beginPath();
         ctx.arc(0, 0, 8, 0, Math.PI * 2);

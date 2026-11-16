@@ -63,24 +63,24 @@ export class WaveManager {
     this.bannerText = '';
   }
 
-  reset() {
+  reset(rng = Math.random) {
     this.currentWave = 1;
     this.waveState = 'spawning';
     this.spawnQueue = [];
     this.spawnTimer = 0;
-    this.startWave(1);
+    this.startWave(1, rng);
   }
 
-  startWave(waveNum) {
+  startWave(waveNum, rng = Math.random) {
     this.currentWave = waveNum;
     this.waveState = 'spawning';
-    this.spawnQueue = this._getWaveComposition(waveNum);
+    this.spawnQueue = this._getWaveComposition(waveNum, rng);
     this.spawnTimer = 0;
     this.bannerText = waveNum === 10 ? 'FINAL WAVE: APEX CORE' : `WAVE ${waveNum}`;
     this.bannerTimer = 2.5;
   }
 
-  _getWaveComposition(waveNum) {
+  _getWaveComposition(waveNum, rng = Math.random) {
     const queue = [];
     let composition = [];
 
@@ -125,9 +125,9 @@ export class WaveManager {
       }
     }
 
-    // Shuffle queue slightly
+    // Shuffle queue using rng
     for (let i = queue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(rng() * (i + 1));
       [queue[i], queue[j]] = [queue[j], queue[i]];
     }
 
@@ -139,50 +139,48 @@ export class WaveManager {
       this.bannerTimer -= dt;
     }
 
-    // Spawn pacer: trickle enemies in
     if (this.spawnQueue.length > 0) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
-        this.spawnTimer = 1.0; // spawn every 1 second
+        this.spawnTimer = 1.0;
         const type = this.spawnQueue.pop();
-        this._spawnEnemyAtBorder(type, world);
+        this._spawnEnemyAtBorder(type, world, world.rng);
       }
     }
   }
 
-  _spawnEnemyAtBorder(type, world) {
-    // Spawn around arena borders outside player view
-    const side = Math.floor(Math.random() * 4);
+  _spawnEnemyAtBorder(type, world, rng = Math.random) {
+    const side = Math.floor(rng() * 4);
     let x = 0, y = 0;
     const margin = 100;
 
     switch (side) {
-      case 0: // Top
-        x = Math.random() * world.width;
+      case 0:
+        x = rng() * world.width;
         y = -margin;
         break;
-      case 1: // Bottom
-        x = Math.random() * world.width;
+      case 1:
+        x = rng() * world.width;
         y = world.height + margin;
         break;
-      case 2: // Left
+      case 2:
         x = -margin;
-        y = Math.random() * world.height;
+        y = rng() * world.height;
         break;
-      case 3: // Right
+      case 3:
         x = world.width + margin;
-        y = Math.random() * world.height;
+        y = rng() * world.height;
         break;
     }
 
     world.enemies.push(new Enemy(x, y, type));
   }
 
-  generateRandomUpgradeCards(count = 3) {
+  generateRandomUpgradeCards(count = 3, rng = Math.random) {
     const pool = [...UPGRADE_CARDS];
     const selected = [];
     for (let i = 0; i < count && pool.length > 0; i++) {
-      const idx = Math.floor(Math.random() * pool.length);
+      const idx = Math.floor(rng() * pool.length);
       selected.push(pool.splice(idx, 1)[0]);
     }
     return selected;

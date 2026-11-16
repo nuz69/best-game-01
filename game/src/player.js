@@ -11,6 +11,7 @@ export class Player {
     this.health = CONFIG.PLAYER.maxHealth;
     this.maxHealth = CONFIG.PLAYER.maxHealth;
     this.hitFlashTimer = 0;
+    this.invulnerableTimer = 0;
     this.fireCooldown = 0;
 
     // Upgrades state
@@ -31,6 +32,7 @@ export class Player {
     this.vy = 0;
     this.health = this.maxHealth;
     this.hitFlashTimer = 0;
+    this.invulnerableTimer = 0;
     this.fireCooldown = 0;
   }
 
@@ -42,7 +44,6 @@ export class Player {
     const maxSpeed = CONFIG.PLAYER.maxSpeed * this.upgrades.speed;
 
     if (mx !== 0 || my !== 0) {
-      // Normalize diagonal movement
       const len = Math.hypot(mx, my);
       const nx = mx / len;
       const ny = my / len;
@@ -80,9 +81,12 @@ export class Player {
     const dy = input.mouse.worldY - this.y;
     this.angle = Math.atan2(dy, dx);
 
-    // Hit flash timer
+    // Timers
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= dt;
+    }
+    if (this.invulnerableTimer > 0) {
+      this.invulnerableTimer -= dt;
     }
 
     // Fire cooldown
@@ -101,12 +105,17 @@ export class Player {
   }
 
   takeDamage(amount) {
+    if (this.invulnerableTimer > 0) return;
+
     if (this.upgrades.shield) {
       this.upgrades.shield = false; // Shield absorbs the hit
-      this.hitFlashTimer = 0.3;
+      this.hitFlashTimer = 0.5;
+      this.invulnerableTimer = 1.0;
       return;
     }
+
     this.health = Math.max(0, this.health - amount);
-    this.hitFlashTimer = 0.3;
+    this.hitFlashTimer = 0.5;
+    this.invulnerableTimer = 1.0; // 1.0 second post-hit invulnerability window
   }
 }

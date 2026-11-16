@@ -13,7 +13,6 @@ export class Renderer {
   }
 
   updateCamera(targetX, targetY) {
-    // Smooth follow camera
     this.camera.x += (targetX - this.camera.x) * 0.1;
     this.camera.y += (targetY - this.camera.y) * 0.1;
   }
@@ -29,31 +28,22 @@ export class Renderer {
     const height = this.canvas.height;
 
     ctx.save();
-    // Center camera on player
     ctx.translate(width / 2, height / 2);
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.camera.x, -this.camera.y);
 
-    // 1. Draw arena grid & boundary
     this._drawGrid(world);
-
-    // 2. Draw pickups
     this._drawPickups(world.pickups);
 
-    // 3. Draw enemies
     for (const enemy of world.enemies) {
       enemy.draw(ctx);
     }
 
-    // 4. Draw projectiles & particles
     world.projectiles.draw(ctx);
-
-    // 5. Draw player vessel with neon glow
     this._drawPlayer(world.player);
 
     ctx.restore();
 
-    // 6. Draw HUD overlays, Boss bar, Wave banner
     this._drawHUD(world);
   }
 
@@ -61,12 +51,10 @@ export class Renderer {
     const ctx = this.ctx;
     const gridSize = 100;
 
-    // Arena boundary box
     ctx.strokeStyle = CONFIG.COLORS.enemyMagenta;
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, world.width, world.height);
 
-    // Grid lines
     ctx.strokeStyle = CONFIG.COLORS.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -103,13 +91,12 @@ export class Renderer {
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
 
-    // Neon glow effect using additive blending
     ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowBlur = player.hitFlashTimer > 0 ? 30 : 15;
-    ctx.shadowColor = player.hitFlashTimer > 0 ? '#ff007f' : CONFIG.COLORS.playerGlow;
+    const isFlashing = player.hitFlashTimer > 0 || (player.invulnerableTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0);
+    ctx.shadowBlur = isFlashing ? 30 : 15;
+    ctx.shadowColor = isFlashing ? '#ff007f' : CONFIG.COLORS.playerGlow;
 
-    // Player ship shape (sleek vector triangle)
-    ctx.strokeStyle = player.hitFlashTimer > 0 ? '#ff007f' : CONFIG.COLORS.player;
+    ctx.strokeStyle = isFlashing ? '#ff007f' : CONFIG.COLORS.player;
     ctx.fillStyle = '#060812';
     ctx.lineWidth = 3;
 
@@ -122,7 +109,6 @@ export class Renderer {
     ctx.fill();
     ctx.stroke();
 
-    // Shield ring if active
     if (player.upgrades.shield) {
       ctx.strokeStyle = CONFIG.COLORS.pickupEmerald;
       ctx.lineWidth = 2;
@@ -174,7 +160,7 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.fillText(`HP: ${Math.ceil(world.player.health)}/${world.player.maxHealth}`, barX + barWidth / 2, barY + 15);
 
-    // Boss Health Bar if boss is present
+    // Boss Health Bar
     const boss = world.enemies.find(e => e.type === 'boss');
     if (boss) {
       const bossBarWidth = Math.min(500, width - 100);
@@ -212,7 +198,50 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawTitleScreen(highScore) {
+  drawTitleScreen(highScore, muted) {
+    const ctx = this.ctx;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.88)';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = '#00f0ff';
+
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = 'bold 44px "Courier New", monospace';
+    ctx.fillText(CONFIG.GAME_TITLE, width / 2, height / 2 - 100);
+
+    ctx.shadowColor = '#ff007f';
+    ctx.fillStyle = '#ff007f';
+    ctx.font = 'bold 18px "Courier New", monospace';
+    ctx.fillText('NEON OMEGA PROTOCOL ACTIVE', width / 2, height / 2 - 50);
+
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffb703';
+    ctx.fillStyle = '#ffb703';
+    ctx.font = 'bold 18px "Courier New", monospace';
+    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px "Courier New", monospace';
+    ctx.fillText('CONTROLS: WASD / Arrows to Move | Mouse to Aim | Hold Click / Space to Fire', width / 2, height / 2 + 50);
+    ctx.fillText(`AUDIO MUTE: [ M ] key (Currently: ${muted ? 'MUTED' : 'UNMUTED'})`, width / 2, height / 2 + 80);
+
+    ctx.fillStyle = '#00f5d4';
+    ctx.font = 'bold 20px "Courier New", monospace';
+    const pulse = Math.floor(Date.now() / 300) % 2 === 0;
+    if (pulse) {
+      ctx.fillText('CLICK or ENTER TO START', width / 2, height / 2 + 130);
+    }
+
+    ctx.restore();
+  }
+
+  drawPauseScreen(muted) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
@@ -222,67 +251,29 @@ export class Renderer {
     ctx.fillRect(0, 0, width, height);
 
     ctx.textAlign = 'center';
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = '#00f0ff';
-
-    // Title
-    ctx.fillStyle = '#00f0ff';
-    ctx.font = 'bold 42px "Courier New", monospace';
-    ctx.fillText(CONFIG.GAME_TITLE, width / 2, height / 2 - 80);
-
-    ctx.shadowColor = '#ff007f';
-    ctx.fillStyle = '#ff007f';
-    ctx.font = 'bold 20px "Courier New", monospace';
-    ctx.fillText('NEON OMEGA PROTOCOL ACTIVE', width / 2, height / 2 - 30);
-
-    // High Score
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = '#ffb703';
-    ctx.fillStyle = '#ffb703';
-    ctx.font = 'bold 18px "Courier New", monospace';
-    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 + 30);
-
-    // Prompt
-    ctx.fillStyle = '#00f5d4';
-    ctx.font = 'bold 20px "Courier New", monospace';
-    const pulse = Math.floor(Date.now() / 300) % 2 === 0;
-    if (pulse) {
-      ctx.fillText('CLICK or ENTER TO START', width / 2, height / 2 + 100);
-    }
-
-    ctx.restore();
-  }
-
-  drawPauseScreen() {
-    const ctx = this.ctx;
-    const width = this.canvas.width;
-    const height = this.canvas.height;
-
-    ctx.save();
-    ctx.fillStyle = 'rgba(6, 8, 18, 0.8)';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.textAlign = 'center';
     ctx.shadowBlur = 20;
     ctx.shadowColor = '#00f0ff';
     ctx.fillStyle = '#00f0ff';
     ctx.font = 'bold 36px "Courier New", monospace';
-    ctx.fillText('GAME PAUSED', width / 2, height / 2 - 20);
+    ctx.fillText('GAME PAUSED', width / 2, height / 2 - 60);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '16px "Courier New", monospace';
-    ctx.fillText('PRESS ESC or P TO RESUME', width / 2, height / 2 + 30);
+    ctx.fillText('[ ESC or P ] RESUME', width / 2, height / 2 - 10);
+    ctx.fillText('[ R ] RESTART', width / 2, height / 2 + 30);
+    ctx.fillText(`[ M ] MUTE TOGGLE (${muted ? 'MUTED' : 'UNMUTED'})`, width / 2, height / 2 + 70);
+    ctx.fillText('[ Q ] QUIT TO TITLE', width / 2, height / 2 + 110);
 
     ctx.restore();
   }
 
-  drawGameOverScreen(score, highScore) {
+  drawGameOverScreen(score, highScore, stats) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(6, 8, 18, 0.9)';
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.92)';
     ctx.fillRect(0, 0, width, height);
 
     ctx.textAlign = 'center';
@@ -291,32 +282,38 @@ export class Renderer {
 
     ctx.fillStyle = '#ff007f';
     ctx.font = 'bold 42px "Courier New", monospace';
-    ctx.fillText('GAME OVER', width / 2, height / 2 - 80);
+    ctx.fillText('GAME OVER', width / 2, height / 2 - 120);
 
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00f0ff';
     ctx.fillStyle = '#00f0ff';
-    ctx.font = 'bold 20px "Courier New", monospace';
-    ctx.fillText(`FINAL SCORE: ${score}`, width / 2, height / 2 - 20);
-    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 + 20);
+    ctx.font = 'bold 18px "Courier New", monospace';
+    ctx.fillText(`FINAL SCORE: ${score}`, width / 2, height / 2 - 60);
+    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 - 30);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillText(`Waves Survived: ${stats.wavesSurvived} / 10`, width / 2, height / 2 + 10);
+    ctx.fillText(`Enemies Defeated: ${stats.enemiesDefeated}`, width / 2, height / 2 + 40);
+    ctx.fillText(`Accuracy: ${stats.accuracy}%`, width / 2, height / 2 + 70);
 
     ctx.fillStyle = '#ffb703';
     ctx.font = 'bold 18px "Courier New", monospace';
     const pulse = Math.floor(Date.now() / 300) % 2 === 0;
     if (pulse) {
-      ctx.fillText('PRESS R TO RESTART', width / 2, height / 2 + 90);
+      ctx.fillText('PRESS R TO RESTART', width / 2, height / 2 + 130);
     }
 
     ctx.restore();
   }
 
-  drawVictoryScreen(score, highScore) {
+  drawVictoryScreen(score, highScore, stats) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(6, 8, 18, 0.9)';
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.92)';
     ctx.fillRect(0, 0, width, height);
 
     ctx.textAlign = 'center';
@@ -325,21 +322,84 @@ export class Renderer {
 
     ctx.fillStyle = '#00f5d4';
     ctx.font = 'bold 42px "Courier New", monospace';
-    ctx.fillText('VICTORY: APEX DEFEATED', width / 2, height / 2 - 80);
+    ctx.fillText('VICTORY: APEX DEFEATED', width / 2, height / 2 - 120);
 
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00f0ff';
     ctx.fillStyle = '#00f0ff';
-    ctx.font = 'bold 20px "Courier New", monospace';
-    ctx.fillText(`FINAL SCORE: ${score}`, width / 2, height / 2 - 20);
-    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 + 20);
+    ctx.font = 'bold 18px "Courier New", monospace';
+    ctx.fillText(`FINAL SCORE: ${score}`, width / 2, height / 2 - 60);
+    ctx.fillText(`HIGH SCORE: ${highScore}`, width / 2, height / 2 - 30);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillText(`Waves Survived: ${stats.wavesSurvived} / 10`, width / 2, height / 2 + 10);
+    ctx.fillText(`Enemies Defeated: ${stats.enemiesDefeated}`, width / 2, height / 2 + 40);
+    ctx.fillText(`Accuracy: ${stats.accuracy}%`, width / 2, height / 2 + 70);
 
     ctx.fillStyle = '#ffb703';
     ctx.font = 'bold 18px "Courier New", monospace';
     const pulse = Math.floor(Date.now() / 300) % 2 === 0;
     if (pulse) {
-      ctx.fillText('PRESS R TO RESTART', width / 2, height / 2 + 90);
+      ctx.fillText('PRESS R TO RESTART', width / 2, height / 2 + 130);
     }
+
+    ctx.restore();
+  }
+
+  drawUpgradeScreen(world) {
+    const ctx = this.ctx;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.9)';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = CONFIG.COLORS.pickupEmerald;
+    ctx.fillStyle = CONFIG.COLORS.pickupEmerald;
+    ctx.font = 'bold 36px "Courier New", monospace';
+    ctx.fillText('SELECT TACTICAL UPGRADE', width / 2, height / 2 - 160);
+
+    const cards = world.upgradeCards;
+    const cardWidth = 300;
+    const cardHeight = 180;
+    const gap = 30;
+    const totalWidth = cards.length * cardWidth + (cards.length - 1) * gap;
+    const startX = (width - totalWidth) / 2;
+    const startY = height / 2 - 80;
+
+    cards.forEach((card, idx) => {
+      const cx = startX + idx * (cardWidth + gap);
+      const cy = startY;
+
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = CONFIG.COLORS.player;
+      ctx.fillStyle = CONFIG.COLORS.hudBg;
+      ctx.strokeStyle = CONFIG.COLORS.player;
+      ctx.lineWidth = 3;
+
+      ctx.fillRect(cx, cy, cardWidth, cardHeight);
+      ctx.strokeRect(cx, cy, cardWidth, cardHeight);
+
+      ctx.fillStyle = CONFIG.COLORS.enemyAmber;
+      ctx.font = 'bold 16px "Courier New", monospace';
+      ctx.fillText(`[ KEY ${idx + 1} ]`, cx + cardWidth / 2, cy + 30);
+
+      ctx.fillStyle = CONFIG.COLORS.textWhite;
+      ctx.font = 'bold 18px "Courier New", monospace';
+      ctx.fillText(card.title, cx + cardWidth / 2, cy + 70);
+
+      ctx.fillStyle = CONFIG.COLORS.pickupEmerald;
+      ctx.font = '14px "Courier New", monospace';
+      ctx.fillText(card.description, cx + cardWidth / 2, cy + 120);
+    });
+
+    ctx.fillStyle = CONFIG.COLORS.textWhite;
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillText('Click card or press 1, 2, or 3 to apply upgrade', width / 2, height / 2 + 140);
 
     ctx.restore();
   }

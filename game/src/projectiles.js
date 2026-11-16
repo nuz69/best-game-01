@@ -23,14 +23,14 @@ export class ProjectilesManager {
     });
   }
 
-  spawnExplosion(x, y, color, count = 12) {
+  spawnExplosion(x, y, color, count = 12, rng = Math.random) {
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 50 + Math.random() * 200;
+      const angle = rng() * Math.PI * 2;
+      const speed = 50 + rng() * 200;
       const vx = Math.cos(angle) * speed;
       const vy = Math.sin(angle) * speed;
-      const life = 0.3 + Math.random() * 0.4;
-      this.spawnParticle(x, y, vx, vy, color, 2 + Math.random() * 3, life);
+      const life = 0.3 + rng() * 0.4;
+      this.spawnParticle(x, y, vx, vy, color, 2 + rng() * 3, life);
     }
   }
 
@@ -48,7 +48,6 @@ export class ProjectilesManager {
       b.y += b.vy * dt;
       b.life -= dt;
 
-      // Out of bounds or expired
       if (b.life <= 0 || b.x < 0 || b.x > arenaWidth || b.y < 0 || b.y > arenaHeight) {
         this.bullets.splice(i, 1);
       }
@@ -79,7 +78,6 @@ export class ProjectilesManager {
   }
 
   draw(ctx) {
-    // Draw bullets with glowing effect
     ctx.save();
     ctx.shadowBlur = 10;
     ctx.shadowColor = '#00f0ff';
@@ -91,7 +89,6 @@ export class ProjectilesManager {
     }
     ctx.restore();
 
-    // Draw particles
     ctx.save();
     for (const p of this.particles) {
       const alpha = Math.max(0, p.life / p.maxLife);
@@ -101,7 +98,6 @@ export class ProjectilesManager {
     }
     ctx.restore();
 
-    // Draw floating texts
     ctx.save();
     ctx.font = 'bold 14px "Courier New", monospace';
     ctx.textAlign = 'center';

@@ -4,6 +4,7 @@ import { ProjectilesManager } from './projectiles.js';
 import { WaveManager, UPGRADE_CARDS } from './waves.js';
 import { Enemy } from './enemies.js';
 import { createRNG } from './random.js';
+import { audio } from './audio.js';
 
 export class World {
   constructor() {
@@ -14,6 +15,7 @@ export class World {
     this.waveManager = new WaveManager();
     this.enemies = [];
     this.pickups = [];
+    this.upgradeCards = [];
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
@@ -31,9 +33,10 @@ export class World {
     this.height = CONFIG.ARENA_HEIGHT;
     this.player.reset(this.width / 2, this.height / 2);
     this.projectiles.reset();
-    this.waveManager.reset();
+    this.waveManager.reset(this.rng);
     this.enemies = [];
     this.pickups = [];
+    this.upgradeCards = [];
     this.score = 0;
     this.combo = 1;
     this.comboTimer = 0;
@@ -41,11 +44,11 @@ export class World {
   }
 
   spawnMinion(x, y) {
-    this.enemies.push(new Enemy(x, y, Math.random() > 0.5 ? 'glowite' : 'vexar'));
+    this.enemies.push(new Enemy(x, y, this.rng() > 0.5 ? 'glowite' : 'vexar'));
   }
 
   step(dt, input) {
-    if (this.isVictory) return;
+    if (this.isVictory || this.waveManager.waveState === 'upgrade') return;
 
     // Update player
     this.player.update(dt, input, this.width, this.height);
@@ -53,6 +56,7 @@ export class World {
     // Handle player firing
     if (input.isFiring && this.player.canFire()) {
       this.player.resetFireCooldown();
+      audio.shoot();
       const speed = CONFIG.PLAYER.bulletSpeed;
       const angle = this.player.angle;
       const spread = this.player.upgrades.spread;
@@ -89,7 +93,7 @@ export class World {
     // Update projectiles & particles
     this.projectiles.update(dt, this.width, this.height);
 
-    // Update pickups (drift / magnet toward player)
+    // Update pickups
     const magnetRadius = 140 * this.player.upgrades.magnet;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i];
@@ -103,9 +107,9 @@ export class World {
         p.y += (pdy / pdist) * pullSpeed * dt;
       }
 
-      // Pickup collection collision
       if (pdist < this.player.radius + p.radius) {
         this.addScore(p.value);
+        audio.pickup();
         this.projectiles.spawnFloatingText(p.x, p.y, `+${p.value} ENERGY`, CONFIG.COLORS.pickupEmerald);
         this.pickups.splice(i, 1);
       }
@@ -123,18 +127,17 @@ export class World {
         const dist = Math.hypot(b.x - e.x, b.y - e.y);
 
         if (dist < b.radius + e.radius) {
-          // Bullet hits enemy
           e.health -= b.damage;
-          this.projectiles.spawnParticle(b.x, b.y, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, CONFIG.COLORS.bullet, 2, 0.3);
+          audio.enemyHit();
+          this.projectiles.spawnParticle(b.x, b.y, (this.rng() - 0.5) * 100, (this.rng() - 0.5) * 100, CONFIG.COLORS.bullet, 2, 0.3);
           this.projectiles.bullets.splice(i, 1);
 
-          // Check enemy death
           if (e.health <= 0) {
             const earned = this.addScore(e.scoreValue);
-            this.projectiles.spawnExplosion(e.x, e.y, e.color, e.type === 'boss' ? 30 : 12);
+            audio.explosion();
+            this.projectiles.spawnExplosion(e.x, e.y, e.color, e.type === 'boss' ? 30 : 12, this.rng);
             this.projectiles.spawnFloatingText(e.x, e.y, `+${earned}`, CONFIG.COLORS.enemyAmber);
 
-            // Spawn energy pickup drop
             this.pickups.push({
               x: e.x,
               y: e.y,
@@ -142,13 +145,11 @@ export class World {
               value: Math.floor(e.scoreValue / 2)
             });
 
-            // Split-Node special behavior: splits into 2 Fragment-Sparks
             if (e.type === 'splitNode') {
               this.enemies.push(new Enemy(e.x + 15, e.y, 'fragment'));
               this.enemies.push(new Enemy(e.x - 15, e.y, 'fragment'));
             }
 
-            // Check if boss died
             if (e.type === 'boss') {
               this.isVictory = true;
             }
@@ -168,7 +169,8 @@ export class World {
       const dist = Math.hypot(b.x - this.player.x, b.y - this.player.y);
       if (dist < b.radius + this.player.radius) {
         this.player.takeDamage(b.damage);
-        this.projectiles.spawnExplosion(b.x, b.y, CONFIG.COLORS.enemyMagenta, 8);
+        audio.enemyHit();
+        this.projectiles.spawnExplosion(b.x, b.y, CONFIG.COLORS.enemyMagenta, 8, this.rng);
         this.projectiles.spawnFloatingText(this.player.x, this.player.y, `-${b.damage}`, CONFIG.COLORS.enemyMagenta);
         this.projectiles.bullets.splice(i, 1);
       }
@@ -181,25 +183,22 @@ export class World {
       if (dist < e.radius + this.player.radius) {
         const contactDamage = e.type === 'boss' ? 40 : (e.type === 'goliathX' ? 30 : 15);
         this.player.takeDamage(contactDamage);
-        this.projectiles.spawnExplosion(this.player.x, this.player.y, CONFIG.COLORS.enemyMagenta, 10);
+        if (this.player.invulnerableTimer > 0 || this.player.health <= 0) {
+          audio.enemyHit();
+        }
+        this.projectiles.spawnExplosion(this.player.x, this.player.y, CONFIG.COLORS.enemyMagenta, 10, this.rng);
         this.projectiles.spawnFloatingText(this.player.x, this.player.y, `-${contactDamage}`, CONFIG.COLORS.enemyMagenta);
 
-        // Push enemy back slightly
         e.x -= (e.x - this.player.x) * 0.5;
         e.y -= (e.y - this.player.y) * 0.5;
       }
     }
 
-    // Wave clear detection
-    if (this.waveManager.spawnQueue.length === 0 && this.enemies.length === 0 && !this.isVictory) {
+    // Wave clear detection -> Trigger upgrade state
+    if (this.waveManager.spawnQueue.length === 0 && this.enemies.length === 0 && !this.isVictory && this.waveManager.waveState === 'spawning') {
       if (this.wave < this.waveManager.maxWaves) {
-        // Automatically apply a random upgrade card between waves for seamless flow
-        const cards = this.waveManager.generateRandomUpgradeCards(1);
-        if (cards.length > 0) {
-          cards[0].apply(this.player);
-          this.projectiles.spawnFloatingText(this.player.x, this.player.y - 40, `UPGRADE: ${cards[0].title}`, CONFIG.COLORS.pickupEmerald);
-        }
-        this.waveManager.startWave(this.wave + 1);
+        this.waveManager.waveState = 'upgrade';
+        this.upgradeCards = this.waveManager.generateRandomUpgradeCards(3, this.rng);
       }
     }
 
@@ -209,6 +208,16 @@ export class World {
       if (this.comboTimer <= 0) {
         this.combo = 1;
       }
+    }
+  }
+
+  applyUpgrade(index) {
+    if (this.upgradeCards[index]) {
+      this.upgradeCards[index].apply(this.player);
+      audio.upgrade();
+      this.projectiles.spawnFloatingText(this.player.x, this.player.y - 40, `UPGRADE: ${this.upgradeCards[index].title}`, CONFIG.COLORS.pickupEmerald);
+      this.upgradeCards = [];
+      this.waveManager.startWave(this.wave + 1, this.rng);
     }
   }
 

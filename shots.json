@@ -1,0 +1,20 @@
+{
+  "screenshots": [
+    {
+      "file": "1-start.jpg",
+      "url": "?shot=start&seed=1001"
+    },
+    {
+      "file": "2-play.jpg",
+      "url": "?shot=play&seed=1001"
+    },
+    {
+      "file": "3-action.jpg",
+      "url": "?shot=action&seed=1001"
+    },
+    {
+      "file": "4-end.jpg",
+      "url": "?shot=end&seed=1001"
+    }
+  ]
+}
