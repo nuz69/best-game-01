@@ -21,6 +21,9 @@ export class World {
     this.comboTimer = 0;
     this.isVictory = false;
     this.rng = createRNG(12345);
+    this.kills = 0;
+    this.shotsFired = 0;
+    this.shotsHit = 0;
   }
 
   get wave() {
@@ -41,6 +44,9 @@ export class World {
     this.combo = 1;
     this.comboTimer = 0;
     this.isVictory = false;
+    this.kills = 0;
+    this.shotsFired = 0;
+    this.shotsHit = 0;
   }
 
   spawnMinion(x, y) {
@@ -66,6 +72,7 @@ export class World {
       const noseX = this.player.x + Math.cos(angle) * 18;
       const noseY = this.player.y + Math.sin(angle) * 18;
       this.projectiles.spawnBullet(noseX, noseY, vx, vy, 25, true);
+      this.shotsFired++;
 
       if (spread > 0) {
         for (let i = 1; i <= spread; i++) {
@@ -73,11 +80,13 @@ export class World {
           const vx1 = Math.cos(offsetAngle1) * speed + this.player.vx * 0.3;
           const vy1 = Math.sin(offsetAngle1) * speed + this.player.vy * 0.3;
           this.projectiles.spawnBullet(noseX, noseY, vx1, vy1, 20, true);
+          this.shotsFired++;
 
           const offsetAngle2 = angle - i * 0.15;
           const vx2 = Math.cos(offsetAngle2) * speed + this.player.vx * 0.3;
           const vy2 = Math.sin(offsetAngle2) * speed + this.player.vy * 0.3;
           this.projectiles.spawnBullet(noseX, noseY, vx2, vy2, 20, true);
+          this.shotsFired++;
         }
       }
     }
@@ -115,8 +124,6 @@ export class World {
       }
     }
 
-    // --- COLLISIONS ---
-
     // 1. Player bullets vs Enemies
     for (let i = this.projectiles.bullets.length - 1; i >= 0; i--) {
       const b = this.projectiles.bullets[i];
@@ -128,11 +135,13 @@ export class World {
 
         if (dist < b.radius + e.radius) {
           e.health -= b.damage;
+          this.shotsHit++;
           audio.enemyHit();
           this.projectiles.spawnParticle(b.x, b.y, (this.rng() - 0.5) * 100, (this.rng() - 0.5) * 100, CONFIG.COLORS.bullet, 2, 0.3);
           this.projectiles.bullets.splice(i, 1);
 
           if (e.health <= 0) {
+            this.kills++;
             const earned = this.addScore(e.scoreValue);
             audio.explosion();
             this.projectiles.spawnExplosion(e.x, e.y, e.color, e.type === 'boss' ? 30 : 12, this.rng);
@@ -181,7 +190,7 @@ export class World {
       const e = this.enemies[i];
       const dist = Math.hypot(e.x - this.player.x, e.y - this.player.y);
       if (dist < e.radius + this.player.radius) {
-        const contactDamage = e.type === 'boss' ? 40 : (e.type === 'goliathX' ? 30 : 15);
+        const contactDamage = e.type === 'boss' ? 30 : (e.type === 'goliathX' ? 20 : 10);
         this.player.takeDamage(contactDamage);
         if (this.player.invulnerableTimer > 0 || this.player.health <= 0) {
           audio.enemyHit();
@@ -189,8 +198,13 @@ export class World {
         this.projectiles.spawnExplosion(this.player.x, this.player.y, CONFIG.COLORS.enemyMagenta, 10, this.rng);
         this.projectiles.spawnFloatingText(this.player.x, this.player.y, `-${contactDamage}`, CONFIG.COLORS.enemyMagenta);
 
-        e.x -= (e.x - this.player.x) * 0.5;
-        e.y -= (e.y - this.player.y) * 0.5;
+        const overlap = (e.radius + this.player.radius + 2) - dist;
+        const nx = (e.x - this.player.x) / (dist || 1);
+        const ny = (e.y - this.player.y) / (dist || 1);
+        e.x += nx * overlap;
+        e.y += ny * overlap;
+        this.player.vx -= nx * 150;
+        this.player.vy -= ny * 150;
       }
     }
 

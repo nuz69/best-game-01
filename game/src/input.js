@@ -3,6 +3,7 @@ export class Input {
     this.canvas = canvas;
     this.keys = {};
     this.prevKeys = {};
+    this.justPressed = new Set();
     this.mouse = {
       x: 0,
       y: 0,
@@ -21,6 +22,9 @@ export class Input {
       // Prevent scrolling on space / arrows
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyP'].includes(e.code)) {
         e.preventDefault();
+      }
+      if (!this.keys[e.code]) {
+        this.justPressed.add(e.code);
       }
       this.keys[e.code] = true;
     });
@@ -74,7 +78,9 @@ export class Input {
   }
 
   isKeyPressed(code) {
-    return !!this.keys[code] && !this.prevKeys[code];
+    const pressed = (!!this.keys[code] && !this.prevKeys[code]) || this.justPressed.has(code);
+    this.justPressed.delete(code);
+    return pressed;
   }
 
   // Convenience helpers

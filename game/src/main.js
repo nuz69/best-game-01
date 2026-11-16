@@ -72,12 +72,14 @@ class GameApp {
           audio.init();
           audio.startAmbientMusic();
           this.world.reset();
+          this.world.waveManager.bannerTimer = 0;
           this.state = 'play';
         }
         break;
 
       case 'play':
         if (this.input.isPausePressed) {
+          this.world.waveManager.bannerTimer = 0;
           this.state = 'pause';
           break;
         }
@@ -95,6 +97,7 @@ class GameApp {
         // Check victory condition
         if (this.world.isVictory) {
           this.state = 'victory';
+          this.world.waveManager.bannerTimer = 0;
           this._updateStats();
           if (this.world.score > this.highScore) {
             this.highScore = this.world.score;
@@ -108,6 +111,7 @@ class GameApp {
         // Check game over condition
         if (this.world.player.health <= 0) {
           this.state = 'over';
+          this.world.waveManager.bannerTimer = 0;
           this._updateStats();
           if (this.world.score > this.highScore) {
             this.highScore = this.world.score;
@@ -159,8 +163,10 @@ class GameApp {
           this.state = 'play';
         } else if (this.input.isRestartPressed) {
           this.world.reset();
+          this.world.waveManager.bannerTimer = 0;
           this.state = 'play';
         } else if (this.input.isKeyPressed('KeyQ')) {
+          this.world.waveManager.bannerTimer = 0;
           this.state = 'title';
         }
         break;
@@ -169,6 +175,7 @@ class GameApp {
       case 'victory':
         if (this.input.isRestartPressed || this.input.isStartPressed) {
           this.world.reset();
+          this.world.waveManager.bannerTimer = 0;
           this.state = 'play';
         }
         break;
@@ -177,11 +184,13 @@ class GameApp {
 
   _updateStats() {
     const survived = Math.max(0, this.world.waveManager.currentWave - (this.world.isVictory ? 0 : 1));
-    const enemies = 25 - this.world.enemies.length; // estimated or tracked
+    const fired = this.world.shotsFired;
+    const hit = this.world.shotsHit;
+    const accuracy = fired > 0 ? Math.min(100, Math.round((hit / fired) * 100)) : 100;
     this.stats = {
       wavesSurvived: survived,
-      enemiesDefeated: Math.max(0, enemies),
-      accuracy: 85
+      enemiesDefeated: this.world.kills,
+      accuracy: accuracy
     };
   }
 
