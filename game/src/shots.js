@@ -19,14 +19,14 @@ export function handleShotMode(app) {
 
   if (shotScene === 'start') {
     app.state = 'title';
-    app.world.waveManager.startWave(1);
+    app.world.waveManager.startWave(1, app.world.rng);
     for (let i = 0; i < 20; i++) {
       simTime += 16;
       app.world.step(0.016, { moveX: 0, moveY: 0, isFiring: false, mouse: { worldX: app.world.player.x + 100, worldY: app.world.player.y } });
     }
   } else if (shotScene === 'play') {
     app.state = 'play';
-    app.world.waveManager.startWave(3);
+    app.world.waveManager.startWave(3, app.world.rng);
     for (let i = 0; i < 240; i++) {
       simTime += 16;
       if (app.world.waveManager.waveState === 'upgrade') {
@@ -36,7 +36,7 @@ export function handleShotMode(app) {
     }
   } else if (shotScene === 'action') {
     app.state = 'play';
-    app.world.waveManager.startWave(7);
+    app.world.waveManager.startWave(7, app.world.rng);
     for (let i = 0; i < 14; i++) {
       const type = i % 3 === 0 ? 'phantasm' : (i % 3 === 1 ? 'splitNode' : 'vexar');
       app.world.enemies.push(new Enemy(app.world.width / 2 + (i - 7) * 70, app.world.height / 2 + (i % 4) * 60, type));
@@ -49,7 +49,7 @@ export function handleShotMode(app) {
   } else if (shotScene === 'end') {
     app.state = 'over';
     app.world.reset(seed);
-    app.world.waveManager.startWave(1);
+    app.world.waveManager.startWave(1, app.world.rng);
     for (let i = 0; i < 6000; i++) {
       simTime += 16;
       if (app.world.player.health <= 0 || app.world.isVictory) break;
