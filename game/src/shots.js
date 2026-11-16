@@ -27,6 +27,8 @@ export function handleShotMode(app) {
   } else if (shotScene === 'play') {
     app.state = 'play';
     app.world.waveManager.startWave(1, app.world.rng);
+    app.world.enemies.push(new Enemy(app.world.player.x + 400, app.world.player.y - 150, 'glowite'));
+    app.world.enemies.push(new Enemy(app.world.player.x - 350, app.world.player.y + 200, 'glowite'));
     for (let i = 0; i < 300; i++) {
       simTime += 16;
       if (app.world.waveManager.waveState === 'upgrade') {

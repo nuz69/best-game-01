@@ -129,9 +129,23 @@ export class World {
       const b = this.projectiles.bullets[i];
       if (!b.isPlayer) continue;
 
+      const px0 = b.x - b.vx * dt;
+      const py0 = b.y - b.vy * dt;
+      const segX = b.vx * dt;
+      const segY = b.vy * dt;
+      const segLenSq = segX * segX + segY * segY;
+
       for (let j = this.enemies.length - 1; j >= 0; j--) {
         const e = this.enemies[j];
-        const dist = Math.hypot(b.x - e.x, b.y - e.y);
+        let dist;
+        if (segLenSq === 0) {
+          dist = Math.hypot(b.x - e.x, b.y - e.y);
+        } else {
+          const t = Math.max(0, Math.min(1, ((e.x - px0) * segX + (e.y - py0) * segY) / segLenSq));
+          const cx = px0 + t * segX;
+          const cy = py0 + t * segY;
+          dist = Math.hypot(cx - e.x, cy - e.y);
+        }
 
         if (dist < b.radius + e.radius) {
           e.health -= b.damage;
