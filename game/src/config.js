@@ -33,7 +33,7 @@ export const CONFIG = {
     friction: 6.0,
     radius: 16,
     baseFireRate: 8, // shots per second
-    bulletSpeed: 900,
+    bulletSpeed: 1260,
     maxHealth: 100
   }
 };

@@ -26,8 +26,8 @@ export function handleShotMode(app) {
     }
   } else if (shotScene === 'play') {
     app.state = 'play';
-    app.world.waveManager.startWave(3, app.world.rng);
-    for (let i = 0; i < 240; i++) {
+    app.world.waveManager.startWave(1, app.world.rng);
+    for (let i = 0; i < 300; i++) {
       simTime += 16;
       if (app.world.waveManager.waveState === 'upgrade') {
         app.world.applyUpgrade(0);
