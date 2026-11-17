@@ -43,7 +43,7 @@ async function main() {
   });
 
   const dossierPath = path.join(outDir, 'dossier.json');
-  fs.writeFileSync(dossierPath, JSON.stringify(dossierData, null, 2));
+  fs.writeFileSync(dossierPath, dossierData);
   console.log(`Dossier successfully written to ${dossierPath}`);
 }
 
