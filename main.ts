@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
 function copyRecursive(src: string, dest: string) {
@@ -20,14 +21,14 @@ async function main() {
   const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
   fs.mkdirSync(outDir, { recursive: true });
 
-  const rootDir = process.cwd();
-  const gameSrc = path.join(rootDir, 'game');
+  const here = fileURLToPath(new URL('.', import.meta.url));
+  const gameSrc = path.join(here, 'game');
   const gameDest = path.join(outDir, 'game');
   if (fs.existsSync(gameSrc)) {
     copyRecursive(gameSrc, gameDest);
   }
 
-  const screenshotsSrc = path.join(rootDir, 'screenshots');
+  const screenshotsSrc = path.join(here, 'screenshots');
   const screenshotsDest = path.join(outDir, 'screenshots');
   if (fs.existsSync(screenshotsSrc)) {
     copyRecursive(screenshotsSrc, screenshotsDest);
